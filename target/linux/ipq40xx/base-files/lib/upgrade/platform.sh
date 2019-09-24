@@ -98,7 +98,8 @@ platform_pre_upgrade() {
 	local board=$(board_name)
 
 	case "$board" in
-	mikrotik,lhgg-60ad)
+	mikrotik,lhgg-60ad|\
+	mikrotik,hap-ac2)
 		[ -z "$(rootfs_type)" ] && mtd erase firmware
 		;;
 	esac

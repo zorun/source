@@ -320,6 +320,13 @@ define Device/MikrotikNOR
 	DEVICE_PACKAGES := rbcfg
 endef
 
+define Device/mikrotik_hap-ac2
+	$(call Device/MikrotikNOR)
+	DEVICE_MODEL := hAP ac2 RBD52G-5HacD2HnD-TC
+	DEVICE_DTS := qcom-ipq4018-hap-ac2
+endef
+TARGET_DEVICES += mikrotik_hap-ac2
+
 define Device/mikrotik_lhgg-60ad
 	$(call Device/MikrotikNOR)
 	DEVICE_MODEL := Wireless Wire Dish LHGG-60ad
