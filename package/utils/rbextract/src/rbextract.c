@@ -21,11 +21,12 @@
 #include "routerboot.h"
 #include "minilzo.h"
 
-#define RB_ART_SIZE		0x10000
-#define RB_BLOCK_SIZE		0x1000
-#define RB_MAGIC_ERD		0x00455244	/* extended radio data */
+#define RB_ART_SIZE 	0x10000
+#define RB_BLOCK_SIZE	0x1000
+#define RB_MAGIC_ERD	0x00455244	/* extended radio data */
+#define RB_MAGIC_LZOR	0x524F5A4C
 
-uint8_t    *rb_hardconfig;
+uint8_t	*rb_hardconfig;
 long    rb_hardconfig_len;
 
 static uint32_t get_u32(void *buf)
@@ -60,20 +61,37 @@ routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 	uint32_t magic;
 	bool align = false;
 	int ret;
+	int lzor = 0;
+
+	printf("routerboot_find_tag buflen: %u\n", buflen);
+	printf("routerboot_find_tag buf: %x\n", buflen);
 
 	if (buflen < 4)
 		return 1;
 
 	magic = get_u32(buf);
 
+	printf("routerboot_find_tag magic: %x\n", magic);
+
 	switch (magic) {
+	case RB_MAGIC_LZOR:
+		buf += 4;
+		buflen -= 4;
+		lzor = 1;
+		printf("routerboot_find_tag LZOR found\n");
+		break;
+
 	case RB_MAGIC_ERD:
 		align = true;
+		printf("ERD HIT\n");
 		/* fall trough */
 	case RB_MAGIC_HARD:
 		/* skip magic value */
 		buf += 4;
 		buflen -= 4;
+		printf("routerboot_find_tag hard config\n");
+		printf("routerboot_find_tag buflen after hard: %u\n", buflen);
+		printf("routerboot_find_tag buf after hard: %x\n", buflen);
 		break;
 
 	case RB_MAGIC_SOFT:
@@ -87,6 +105,7 @@ routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 		break;
 
 	default:
+		printf("routerboot_find_tag NO CASE MATCH\n");
 		return 1;
 	}
 
@@ -138,6 +157,9 @@ rb_find_hard_cfg_tag(uint16_t tag_id, uint8_t **tag_data, uint16_t *tag_len)
 	    !rb_hardconfig_len)
 		return 1;
 
+	printf("rb_hardconfig: %x\n", rb_hardconfig);
+	printf("rb_hardconfig_len: %lu\n", rb_hardconfig_len);
+
 	return routerboot_find_tag(rb_hardconfig,
 				   rb_hardconfig_len,
 				   tag_id, tag_data, tag_len);
@@ -149,6 +171,9 @@ rb_get_board_name(void)
 	uint16_t tag_len;
 	uint8_t *tag;
 	int err;
+
+	printf("rb_get_board_name tag: %u\n", tag);
+	printf("rb_get_board_name tag_len: %u\n", tag_len);
 
 	err = rb_find_hard_cfg_tag(RB_ID_BOARD_NAME, &tag, &tag_len);
 	if (err)
@@ -181,6 +206,9 @@ __rb_get_wlan_data(uint16_t id)
 	uint32_t magic;
 	size_t src_done;
 	size_t dst_done;
+
+	printf("__rb_get_wlan_data tag: %u\n", tag);
+	printf("__rb_get_wlan_data tag_len: %u\n", tag_len);
 
 	err = rb_find_hard_cfg_tag(RB_ID_WLAN_DATA, &tag, &tag_len);
 	if (err) {
@@ -268,6 +296,7 @@ main(int argc, char **argv)
 	
 	fseek(infile, 0L, SEEK_END);
 	rb_hardconfig_len = ftell(infile);
+	printf("rb_hardconfig_len: %ld\n",rb_hardconfig_len);
 	
 	fseek(infile, 0L, SEEK_SET);
 	
@@ -286,13 +315,13 @@ main(int argc, char **argv)
 	}
 	
 	printf("%s\n", rb_get_board_name());
-	buf = __rb_get_wlan_data(0);
+	/*buf = __rb_get_wlan_data(0);
 	
 	outfile = fopen(argv[2], "wb");
 	//hack off the leading 4k of 0xFF
 	for(i = 4096; i<=RB_ART_SIZE; i++){
 		fwrite(&buf[i], sizeof(uint8_t), sizeof(uint8_t), outfile);
 	}
-	fclose(outfile);
+	fclose(outfile);*/
 	exit(0);
 }

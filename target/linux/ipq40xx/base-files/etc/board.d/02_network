@@ -89,7 +89,7 @@ ipq40xx_setup_macs()
 		;;
 	mikrotik,lhgg-60ad|\
 	mikrotik,hap-ac2)
-		lan_mac=$(mtd_get_mac_binary hard_config 0x10)
+		wan_mac=$(mtd_get_mac_binary hard_config 0x10)
 		;;
 	esac
 
