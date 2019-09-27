@@ -76,7 +76,7 @@ detect_mac80211() {
 		config_foreach check_mac80211_device wifi-device
 		[ "$found" -gt 0 ] && continue
 
-		if ! [ iw phy "$dev" info | grep -q '58320 MHz' ]; then
+		if [ iw phy "$dev" info | grep -q '58320 MHz' ]; then
 			mode_band="ad"
 			channel="1"
 			htmode=""
