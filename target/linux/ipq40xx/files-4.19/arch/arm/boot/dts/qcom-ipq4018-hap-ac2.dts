@@ -191,7 +191,7 @@
 			#address-cells = <1>;
 			#size-cells = <1>;
 
-			partition0@0 {
+			partition0@80000 {
 				label = "RouterBoot";
 				reg = <0x80000 0xe000>;
 				read-only;
@@ -217,6 +217,11 @@
 				compatible = "mikrotik,minor";
 				label = "firmware";
 				reg = <0x100000 0xf00000>;
+			};
+
+			partition5@0 {
+				label = "whole_flash";
+				reg = <0x0 0x1000000>;
 			};
 		};
 	};
