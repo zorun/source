@@ -42,56 +42,27 @@ static uint32_t get_u32(void *buf)
 #endif
 }
 
-static uint16_t get_u16(void *buf)
-{
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-	return *(uint16_t *)buf;
-#elif __BYTE_ORDER == __BIG_ENDIAN
-	uint8_t *p = buf;
-	return (uint16_t) p[1] + ((uint16_t) p[0] << 8);
-#else
-#error "Unknown byte order!"
-#endif
-}
-
 int
 routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 		    uint8_t **tag_data, uint16_t *tag_len)
 {
+	uint16_t id;
+	uint16_t len;
 	uint32_t magic;
-	bool align = false;
 	int ret;
-	int lzor = 0;
-
-	printf("routerboot_find_tag buflen: %u\n", buflen);
-	printf("routerboot_find_tag buf: %x\n", buflen);
 
 	if (buflen < 4)
 		return 1;
 
 	magic = get_u32(buf);
 
-	printf("routerboot_find_tag magic: %x\n", magic);
-
 	switch (magic) {
-	case RB_MAGIC_LZOR:
-		buf += 4;
-		buflen -= 4;
-		lzor = 1;
-		printf("routerboot_find_tag LZOR found\n");
-		break;
-
 	case RB_MAGIC_ERD:
-		align = true;
-		printf("ERD HIT\n");
 		/* fall trough */
 	case RB_MAGIC_HARD:
 		/* skip magic value */
 		buf += 4;
 		buflen -= 4;
-		printf("routerboot_find_tag hard config\n");
-		printf("routerboot_find_tag buflen after hard: %u\n", buflen);
-		printf("routerboot_find_tag buf after hard: %x\n", buflen);
 		break;
 
 	case RB_MAGIC_SOFT:
@@ -105,43 +76,30 @@ routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 		break;
 
 	default:
-		printf("routerboot_find_tag NO CASE MATCH\n");
 		return 1;
 	}
 
 	ret = 1;
-	while (buflen > 2) {
-		uint16_t id;
-		uint16_t len;
+	while (buflen > 4){
+		uint32_t id_and_len = get_u32(buf);
+		buf += 4;
+		buflen -= 4;
+		id = id_and_len & 0xFFFF;
+		len = id_and_len >> 16;
 
-		len = get_u16(buf);
-		buf += 2;
-		buflen -= 2;
-
-		if (buflen < 2)
+		if (id == RB_ID_TERMINATOR) {
 			break;
-
-		id = get_u16(buf);
-		buf += 2;
-		buflen -= 2;
-
-		if (id == RB_ID_TERMINATOR)
-			break;
+		}
 
 		if (buflen < len)
 			break;
 
 		if (id == tag_id) {
-			if (tag_len)
-				*tag_len = len;
-			if (tag_data)
-				*tag_data = buf;
+			*tag_len = len;
+			*tag_data = buf;
 			ret = 0;
 			break;
 		}
-
-		if (align)
-			len = (len + 3) / 4;
 
 		buf += len;
 		buflen -= len;
@@ -157,9 +115,6 @@ rb_find_hard_cfg_tag(uint16_t tag_id, uint8_t **tag_data, uint16_t *tag_len)
 	    !rb_hardconfig_len)
 		return 1;
 
-	printf("rb_hardconfig: %x\n", rb_hardconfig);
-	printf("rb_hardconfig_len: %lu\n", rb_hardconfig_len);
-
 	return routerboot_find_tag(rb_hardconfig,
 				   rb_hardconfig_len,
 				   tag_id, tag_data, tag_len);
@@ -171,9 +126,6 @@ rb_get_board_name(void)
 	uint16_t tag_len;
 	uint8_t *tag;
 	int err;
-
-	printf("rb_get_board_name tag: %u\n", tag);
-	printf("rb_get_board_name tag_len: %u\n", tag_len);
 
 	err = rb_find_hard_cfg_tag(RB_ID_BOARD_NAME, &tag, &tag_len);
 	if (err)
@@ -206,9 +158,6 @@ __rb_get_wlan_data(uint16_t id)
 	uint32_t magic;
 	size_t src_done;
 	size_t dst_done;
-
-	printf("__rb_get_wlan_data tag: %u\n", tag);
-	printf("__rb_get_wlan_data tag_len: %u\n", tag_len);
 
 	err = rb_find_hard_cfg_tag(RB_ID_WLAN_DATA, &tag, &tag_len);
 	if (err) {
@@ -283,20 +232,19 @@ main(int argc, char **argv)
 	uint32_t i;
 	
 	if(argc != 3){
-		printf("Extracts ath9k calibration data from routerboot partition\n");
+		printf("Extracts ath10k calibration data from hard_config partition\n");
 		printf("Usage:\n");
-		printf("routerboot /dev/mtd1 /lib/firmware/soc_wmac.eeprom\n");
+		printf("routerboot /dev/mtd1 /lib/firmware/erd.bin\n");
 		exit(1);
 	}
-	
+
 	infile = fopen(argv[1], "r");
-	
+
 	if(infile == NULL)
     return 1;
-	
+
 	fseek(infile, 0L, SEEK_END);
 	rb_hardconfig_len = ftell(infile);
-	printf("rb_hardconfig_len: %ld\n",rb_hardconfig_len);
 	
 	fseek(infile, 0L, SEEK_SET);
 	
@@ -306,22 +254,21 @@ main(int argc, char **argv)
 
 	fread(rb_hardconfig, sizeof(uint8_t), rb_hardconfig_len, infile);
 	fclose(infile);
-	
+
 	magic = get_u32(rb_hardconfig);
-	printf("rb_hardconfig: %x\n", magic);
 	if(magic != RB_MAGIC_HARD){
 		printf("Routerboot Hard Config not found");
 		exit(1);
 	}
 	
 	printf("%s\n", rb_get_board_name());
-	/*buf = __rb_get_wlan_data(0);
+	buf = __rb_get_wlan_data(0);
 	
 	outfile = fopen(argv[2], "wb");
 	//hack off the leading 4k of 0xFF
-	for(i = 4096; i<=RB_ART_SIZE; i++){
+	for(i = 1; i<=RB_ART_SIZE; i++){ /* Default was i=4096 */
 		fwrite(&buf[i], sizeof(uint8_t), sizeof(uint8_t), outfile);
 	}
-	fclose(outfile);*/
+	fclose(outfile);
 	exit(0);
 }

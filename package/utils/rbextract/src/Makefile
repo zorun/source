@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -ggdb3
+CFLAGS =
 OBJS = rbextract.o rle.o minilzo.c
 
 all: rbextract
