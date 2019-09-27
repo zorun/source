@@ -120,7 +120,7 @@ rb_find_hard_cfg_tag(uint16_t tag_id, uint8_t **tag_data, uint16_t *tag_len)
 				   tag_id, tag_data, tag_len);
 }
 
-const char *
+const uint8_t *
 rb_get_board_name(void)
 {
 	uint16_t tag_len;
