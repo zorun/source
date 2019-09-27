@@ -29,12 +29,13 @@
 uint8_t	*rb_hardconfig;
 long    rb_hardconfig_len;
 
-static uint32_t get_u32(void *buf)
+static inline uint32_t
+get_u32(const void *buf)
 {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 	return *(uint32_t *)buf;
 #elif __BYTE_ORDER == __BIG_ENDIAN
-	uint8_t *p = buf;
+	const uint8_t *p = buf;
 	return ((uint32_t) p[3] + ((uint32_t) p[2] << 8) +
 	       ((uint32_t) p[1] << 16) + ((uint32_t) p[0] << 24));
 #else
@@ -121,6 +122,62 @@ rb_find_hard_cfg_tag(uint16_t tag_id, uint8_t **tag_data, uint16_t *tag_len)
 }
 
 const uint8_t *
+rb_get_board_product_code(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_BOARD_PRODUCT_CODE, &tag, &tag_len);
+	if (err)
+		return NULL;
+
+	return tag;
+}
+
+uint32_t
+rb_get_board_mac(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_MAC_ADDRESS_PACK, &tag, &tag_len);
+	if (err)
+		return 0;
+
+	return get_u32(tag);
+}
+
+const uint8_t *
+rb_get_board_serial(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_SERIAL_NUMBER, &tag, &tag_len);
+	if (err)
+		return NULL;
+
+	return tag;
+}
+
+const uint8_t *
+rb_get_board_identifier(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_BOARD_IDENTIFIER, &tag, &tag_len);
+	if (err)
+		return NULL;
+
+	return tag;
+}
+
+const uint8_t *
 rb_get_board_name(void)
 {
 	uint16_t tag_len;
@@ -132,6 +189,34 @@ rb_get_board_name(void)
 		return NULL;
 
 	return tag;
+}
+
+const uint8_t *
+rb_get_factory_booter_version(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_BIOS_VERSION, &tag, &tag_len);
+	if (err)
+		return NULL;
+
+	return tag;
+}
+
+uint32_t
+rb_get_hw_options(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_HW_OPTIONS, &tag, &tag_len);
+	if (err)
+		return 0;
+
+	return get_u32(tag);
 }
 
 static uint8_t * 
@@ -247,12 +332,18 @@ main(int argc, char **argv)
 		exit(1);
 	}
 	
-	printf("%s\n", rb_get_board_name());
+	printf("Board name: %s\n", rb_get_board_name());
+	printf("Board product code: %s\n", rb_get_board_product_code());
+	printf("Board identifier: %s\n", rb_get_board_identifier());
+	printf("Board serial: %s\n", rb_get_board_serial());
+	printf("Board MAC: %x\n", rb_get_board_mac());
+	printf("Board HW Options: %x\n", rb_get_hw_options());
+	printf("Board RouterBoot factory version: %s\n", rb_get_factory_booter_version());
 	buf = __rb_get_wlan_data(0);
 	
 	outfile = fopen(argv[2], "wb");
-	//hack off the leading 4k of 0xFF
-	for(i = 1; i<=RB_ART_SIZE; i++){ /* Default was i=4096 */
+	/* Write 65536 bytes of caldata */
+	for(i = 1; i<=RB_ART_SIZE; i++){
 		fwrite(&buf[i], sizeof(uint8_t), sizeof(uint8_t), outfile);
 	}
 	fclose(outfile);
