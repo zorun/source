@@ -3,6 +3,7 @@
  *
  *  Copyright (C) 2012 Gabor Juhos <juhosg@openwrt.org>
  *  Copyright (C) 2018 Chris Schimp <silverchris@gmail.com>
+ *	Copyright (C) 2019 Robert Marko <robimarko@gmail.com>
  *  
  *  This program is free software; you can redistribute it and/or modify it
  *  under the terms of the GNU General Public License version 2 as published
@@ -22,7 +23,6 @@
 #include "minilzo.h"
 
 #define RB_ART_SIZE 	0x10000
-#define RB_BLOCK_SIZE	0x1000
 #define RB_MAGIC_ERD	0x00455244	/* extended radio data */
 #define RB_MAGIC_LZOR	0x524F5A4C
 
@@ -132,20 +132,6 @@ rb_get_board_name(void)
 		return NULL;
 
 	return tag;
-}
-
-uint32_t
-rb_get_hw_options(void)
-{
-	uint16_t tag_len;
-	uint8_t *tag;
-	int err;
-
-	err = rb_find_hard_cfg_tag(RB_ID_HW_OPTIONS, &tag, &tag_len);
-	if (err)
-		return 0;
-
-	return get_u32(tag);
 }
 
 static uint8_t * 
