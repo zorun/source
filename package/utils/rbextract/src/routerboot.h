@@ -41,9 +41,9 @@ int routerboot_find_magic(uint8_t *buf, unsigned int buflen, uint32_t *offset, b
 /*
  * Magic numbers
  */
+#define RB_ART_SIZE 	0x10000
 #define RB_MAGIC_HARD	0x64726148 /* "Hard" */
 #define RB_MAGIC_SOFT	0x74666F53 /* "Soft" */
-#define RB_ART_SIZE 	0x10000
 #define RB_MAGIC_ERD	0x00455244	/* extended radio data */
 #define RB_MAGIC_LZOR	0x524F5A4C
 

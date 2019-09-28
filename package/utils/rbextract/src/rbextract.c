@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <endian.h>
+#include <arpa/inet.h>
 
 #include "rle.h"
 #include "routerboot.h"
@@ -47,6 +48,7 @@ routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 	uint16_t id;
 	uint16_t len;
 	uint32_t magic;
+	bool align = false;
 	int ret;
 
 	if (buflen < 4)
@@ -55,7 +57,12 @@ routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 	magic = get_u32(buf);
 
 	switch (magic) {
+	case RB_MAGIC_LZOR:
+		buf += 4;
+		buflen -= 4;
+		break;
 	case RB_MAGIC_ERD:
+		align = true;
 		/* fall trough */
 	case RB_MAGIC_HARD:
 		/* skip magic value */
@@ -98,6 +105,9 @@ routerboot_find_tag(uint8_t *buf, unsigned int buflen, uint16_t tag_id,
 			ret = 0;
 			break;
 		}
+
+		if (align)
+			len = (len + 3) / 4;
 
 		buf += len;
 		buflen -= len;
@@ -143,7 +153,13 @@ rb_get_board_mac(void)
 	if (err)
 		return 0;
 
-	return get_u32(tag);
+	#if __BYTE_ORDER == __LITTLE_ENDIAN
+		return htonl(get_u32(tag));
+	#elif __BYTE_ORDER == __BIG_ENDIAN
+		return(get_u32(tag));
+	#else
+	#error "Unknown byte order!"
+	#endif
 }
 
 const uint8_t *
@@ -203,6 +219,26 @@ rb_get_factory_booter_version(void)
 }
 
 uint32_t
+rb_get_flash_info(void)
+{
+	uint16_t tag_len;
+	uint8_t *tag;
+	int err;
+
+	err = rb_find_hard_cfg_tag(RB_ID_FLASH_INFO, &tag, &tag_len);
+	if (err)
+		return 0;
+
+	#if __BYTE_ORDER == __LITTLE_ENDIAN
+		return htonl(get_u32(tag));
+	#elif __BYTE_ORDER == __BIG_ENDIAN
+		return(get_u32(tag));
+	#else
+	#error "Unknown byte order!"
+	#endif
+}
+
+uint32_t
 rb_get_hw_options(void)
 {
 	uint16_t tag_len;
@@ -213,7 +249,13 @@ rb_get_hw_options(void)
 	if (err)
 		return 0;
 
-	return get_u32(tag);
+	#if __BYTE_ORDER == __LITTLE_ENDIAN
+		return htonl(get_u32(tag));
+	#elif __BYTE_ORDER == __BIG_ENDIAN
+		return(get_u32(tag));
+	#else
+	#error "Unknown byte order!"
+	#endif
 }
 
 static uint8_t * 
@@ -316,6 +358,7 @@ main(int argc, char **argv)
 		printf("-m Prints board MAC\n");
 		printf("-o Prints board HW options\n");
 		printf("-r Prints board RouterBoot factory version\n");
+		printf("-f Prints board flash identifier\n");
 		printf("-e Extract board radio calibration\n");
 		printf("hard_config_location: Path to hard_config partiton\n");
 		printf("output_file: Path to where caldata will be output\n");
@@ -346,13 +389,14 @@ main(int argc, char **argv)
 		}
 
 		if(strcmp(argv[1], "-a") == 0){
-			printf("%s\n", rb_get_board_name());
-			printf("%s\n", rb_get_board_product_code());
-			printf("%s\n", rb_get_board_identifier());
-			printf("%s\n", rb_get_board_serial());
-			printf("%x\n", rb_get_board_mac());
-			printf("%x\n", rb_get_hw_options());
-			printf("%s\n", rb_get_factory_booter_version());
+			printf("Board name: %s\n", rb_get_board_name());
+			printf("Board product code: %s\n", rb_get_board_product_code());
+			printf("Board identifier: %s\n", rb_get_board_identifier());
+			printf("Board serial: %s\n", rb_get_board_serial());
+			printf("Board MAC: %X\n", rb_get_board_mac());
+			printf("HW Options %x\n", rb_get_hw_options());
+			printf("Factory RouterBoot version: %s\n", rb_get_factory_booter_version());
+			printf("Flash identifier: %x\n", rb_get_flash_info());
 		} else if(strcmp(argv[1], "-n") == 0){
 			printf("%s\n", rb_get_board_name());
 		} else if(strcmp(argv[1], "-p") == 0){
@@ -367,8 +411,10 @@ main(int argc, char **argv)
 			printf("%x\n", rb_get_hw_options());
 		} else if(strcmp(argv[1], "-r") == 0){
 			printf("%s\n", rb_get_factory_booter_version());
+		} else if(strcmp(argv[1], "-f") == 0){
+			printf("%x\n", rb_get_flash_info());
 		} else if(strcmp(argv[1], "-e") == 0){
-			buf = __rb_get_wlan_data(0);
+			buf = __rb_get_wlan_data(1);
 
 			if(argv[3] == NULL){
 				printf("Missing output file argument\n");
