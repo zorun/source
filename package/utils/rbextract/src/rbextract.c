@@ -16,15 +16,12 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <stdlib.h>
+#include <string.h>
 #include <endian.h>
 
 #include "rle.h"
 #include "routerboot.h"
 #include "minilzo.h"
-
-#define RB_ART_SIZE 	0x10000
-#define RB_MAGIC_ERD	0x00455244	/* extended radio data */
-#define RB_MAGIC_LZOR	0x524F5A4C
 
 uint8_t	*rb_hardconfig;
 long    rb_hardconfig_len;
@@ -292,7 +289,6 @@ rb_get_wlan_data(void)
 	return __rb_get_wlan_data(0);
 }
 
-
 int
 main(int argc, char **argv)
 {
@@ -302,50 +298,95 @@ main(int argc, char **argv)
 	uint32_t magic;
 	uint32_t i;
 	
-	if(argc != 3){
-		printf("Extracts ath10k calibration data from hard_config partition\n");
-		printf("Usage:\n");
-		printf("routerboot /dev/mtd1 /lib/firmware/erd.bin\n");
+	if(argc < 2){
+		printf("Not enough arguments\n");
+		printf("Use -h for help\n");
 		exit(1);
 	}
 
-	infile = fopen(argv[1], "r");
+	if(strcmp(argv[1], "-h") == 0){
+		printf("This program can extract various data from MikroTik devices hard_config partition\n");
+		printf("Usage: rbextract <options> <hard_config_location> <output_file> (Optional)\n");
+		printf("Options:\n");
+		printf("-a Prints all possible info\n");
+		printf("-n Prints board name\n");
+		printf("-p Prints board product code\n");
+		printf("-i Prints board identifier\n");
+		printf("-s Prints board serial number\n");
+		printf("-m Prints board MAC\n");
+		printf("-o Prints board HW options\n");
+		printf("-r Prints board RouterBoot factory version\n");
+		printf("-e Extract board radio calibration\n");
+		printf("hard_config_location: Path to hard_config partiton\n");
+		printf("output_file: Path to where caldata will be output\n");
+	} else {
+		infile = fopen(argv[2], "r");
 
-	if(infile == NULL)
-    return 1;
+		if(infile == NULL){
+			printf("Cant open given path\n");
+    		return 1;
+    	}
 
-	fseek(infile, 0L, SEEK_END);
-	rb_hardconfig_len = ftell(infile);
+		fseek(infile, 0L, SEEK_END);
+		rb_hardconfig_len = ftell(infile);
 	
-	fseek(infile, 0L, SEEK_SET);
+		fseek(infile, 0L, SEEK_SET);
 	
-	rb_hardconfig = (uint8_t*)calloc(rb_hardconfig_len, sizeof(uint8_t));	
-	if(rb_hardconfig == NULL)
-		return 1;
+		rb_hardconfig = (uint8_t*)calloc(rb_hardconfig_len, sizeof(uint8_t));	
+		if(rb_hardconfig == NULL)
+			return 1;
 
-	fread(rb_hardconfig, sizeof(uint8_t), rb_hardconfig_len, infile);
-	fclose(infile);
+		fread(rb_hardconfig, sizeof(uint8_t), rb_hardconfig_len, infile);
+		fclose(infile);
 
-	magic = get_u32(rb_hardconfig);
-	if(magic != RB_MAGIC_HARD){
-		printf("Routerboot Hard Config not found");
-		exit(1);
+		magic = get_u32(rb_hardconfig);
+		if(magic != RB_MAGIC_HARD){
+			printf("Routerboot Hard Config not found\n");
+			exit(1);
+		}
+
+		if(strcmp(argv[1], "-a") == 0){
+			printf("%s\n", rb_get_board_name());
+			printf("%s\n", rb_get_board_product_code());
+			printf("%s\n", rb_get_board_identifier());
+			printf("%s\n", rb_get_board_serial());
+			printf("%x\n", rb_get_board_mac());
+			printf("%x\n", rb_get_hw_options());
+			printf("%s\n", rb_get_factory_booter_version());
+		} else if(strcmp(argv[1], "-n") == 0){
+			printf("%s\n", rb_get_board_name());
+		} else if(strcmp(argv[1], "-p") == 0){
+			printf("%s\n", rb_get_board_product_code());
+		} else if(strcmp(argv[1], "-i") == 0){
+			printf("%s\n", rb_get_board_identifier());
+		} else if(strcmp(argv[1], "-s") == 0){
+			printf("%s\n", rb_get_board_serial());
+		} else if(strcmp(argv[1], "-m") == 0){
+			printf("%x\n", rb_get_board_mac());
+		} else if(strcmp(argv[1], "-o") == 0){
+			printf("%x\n", rb_get_hw_options());
+		} else if(strcmp(argv[1], "-r") == 0){
+			printf("%s\n", rb_get_factory_booter_version());
+		} else if(strcmp(argv[1], "-e") == 0){
+			buf = __rb_get_wlan_data(0);
+
+			if(argv[3] == NULL){
+				printf("Missing output file argument\n");
+				return 1;
+			}
+	
+			outfile = fopen(argv[3], "wb");
+			if(outfile == NULL){
+				printf("Cant open given path\n");
+    			return 1;
+    		}
+
+			/* Write 65536 bytes of caldata */
+			for(i = 1; i<=RB_ART_SIZE; i++){
+				fwrite(&buf[i], sizeof(uint8_t), sizeof(uint8_t), outfile);
+			}
+			fclose(outfile);
+		}
 	}
-	
-	printf("Board name: %s\n", rb_get_board_name());
-	printf("Board product code: %s\n", rb_get_board_product_code());
-	printf("Board identifier: %s\n", rb_get_board_identifier());
-	printf("Board serial: %s\n", rb_get_board_serial());
-	printf("Board MAC: %x\n", rb_get_board_mac());
-	printf("Board HW Options: %x\n", rb_get_hw_options());
-	printf("Board RouterBoot factory version: %s\n", rb_get_factory_booter_version());
-	buf = __rb_get_wlan_data(0);
-	
-	outfile = fopen(argv[2], "wb");
-	/* Write 65536 bytes of caldata */
-	for(i = 1; i<=RB_ART_SIZE; i++){
-		fwrite(&buf[i], sizeof(uint8_t), sizeof(uint8_t), outfile);
-	}
-	fclose(outfile);
 	exit(0);
 }
