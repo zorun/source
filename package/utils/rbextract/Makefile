@@ -1,6 +1,7 @@
 #
 ## Copyright (C) 2010 Gabor Juhos <juhosg@openwrt.org>
 #  Copyright (C) 2018 Chris Schimp <silverchris@gmail.com>
+#  Copyright (C) 2019 Robert Marko <robimarko@gmail.com>
 #  
 ## This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
@@ -35,7 +36,7 @@ endef
 define Build/Compile
 	$(MAKE) -C $(PKG_BUILD_DIR) \
 		CC="$(TARGET_CC)" \
-		CFLAGS="$(TARGET_CFLAGS) -Wall" \
+		CFLAGS="$(TARGET_CFLAGS)" \
 		LDFLAGS="$(TARGET_LDFLAGS)"
 endef
 
